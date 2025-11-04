@@ -1,279 +1,568 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Durak Helper — 24 карты</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Durak Pro — помощник 24</title>
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:12px;color:#111}
-  h1{font-size:18px;margin:6px 0}
-  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
-  select,input,button{font-size:16px;padding:8px;border-radius:6px;border:1px solid #ccc}
-  .card{padding:6px 8px;border-radius:6px;border:1px solid #bbb;cursor:pointer;user-select:none}
-  .card.selected{background:#def;border-color:#58a}
-  .panel{border:1px solid #eee;padding:10px;border-radius:8px;margin:8px 0;background:#fafafa}
-  .small{font-size:13px;color:#555}
-  .table-cards{display:flex;gap:6px;flex-wrap:wrap}
-  .suggest{background:#0a84ff;color:white;border:none;padding:10px 12px;border-radius:8px}
-  .explain{margin-top:8px;background:#fff7e6;border:1px solid #ffd79a;padding:8px;border-radius:6px}
-  label{display:block;margin-top:6px}
-  .cardlist{display:flex;gap:6px;flex-wrap:wrap}
-  footer{font-size:12px;color:#666;margin-top:14px}
+  :root{--bg:#fcfcfd;--panel:#ffffff;--accent:#0a84ff;--muted:#666}
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:10px;background:var(--bg);color:#111}
+  h1{font-size:18px;margin:6px 0;text-align:center}
+  .wrap{max-width:920px;margin:0 auto}
+  .panel{background:var(--panel);border:1px solid #eee;border-radius:12px;padding:10px;margin:8px 0;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .card{min-width:56px;padding:8px;border-radius:10px;border:1px solid #ddd;text-align:center;user-select:none;font-weight:600;cursor:pointer}
+  .card.small{min-width:46px;padding:6px}
+  .card.selected{box-shadow:inset 0 -3px 0 rgba(0,0,0,0.03);border-color:var(--accent);background:linear-gradient(#eaffff,#f0f8ff)}
+  .suit-red{color:#c33}
+  .suit-black{color:#111}
+  select,input,button{font-size:15px;padding:8px;border-radius:8px;border:1px solid #ccc;background:#fff}
+  button.primary{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:10px}
+  .small{font-size:13px;color:var(--muted)}
+  .muted{color:var(--muted)}
+  .table{display:flex;flex-direction:column;gap:8px}
+  .pair{display:flex;gap:8px;align-items:center}
+  .pair .attack,.pair .defend{min-width:80px;padding:8px;border-radius:8px;border:1px dashed #ddd;text-align:center}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .leftcol{flex:1;min-width:260px}
+  .rightcol{flex:1;min-width:260px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .note{background:#fffbe6;border:1px solid #ffe39a;padding:8px;border-radius:8px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  footer{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+  @media(max-width:700px){ .grid{grid-template-columns:1fr} .card{min-width:48px} .pair .attack,.pair .defend{min-width:64px} }
 </style>
 </head>
 <body>
-<h1>Durak Helper — 24 карты (веб, iPhone)</h1>
-<div class="panel">
-  <div class="small">Выбери карты в своей руке (нажми на карты), выбери козырь и роль, затем добавь карты на стол.</div>
+<div class="wrap">
+  <h1>Durak Pro — помощник (24 карты)</h1>
 
-  <label>Ваша рука:</label>
-  <div id="hand" class="cardlist"></div>
-
-  <label>Козырь:</label>
-  <select id="trump">
-    <option value="C">♣ Треф (C)</option>
-    <option value="D">♦ Буби (D)</option>
-    <option value="H">♥ Черви (H)</option>
-    <option value="S">♠ Пики (S)</option>
-  </select>
-
-  <label>Роль:</label>
-  <select id="role">
-    <option value="attacker">Атакующий</option>
-    <option value="defender">Защищающийся</option>
-  </select>
-
-  <label>Карты на столе (атака / покрытия). Нажми чтобы добавить в массив стола:</label>
-  <div class="table-cards" id="tableCards"></div>
-
-  <div style="margin-top:10px">
-    <button id="suggestBtn" class="suggest">Suggest</button>
-    <button id="clearBtn" style="margin-left:8px">Clear</button>
+  <div class="panel">
+    <div class="small">Интерфейс: выбери свои карты, добавляй пары на стол, проси подсказку. Есть Undo, Save, Load и Бита.</div>
+    <div style="margin-top:8px" class="row">
+      <label>Козырь:</label>
+      <select id="trump">
+        <option value="H">♥ Черви</option>
+        <option value="D">♦ Буби</option>
+        <option value="C">♣ Трефы</option>
+        <option value="S">♠ Пики</option>
+      </select>
+      <label style="margin-left:8px">Роль:</label>
+      <select id="role">
+        <option value="attacker">Атакующий</option>
+        <option value="defender">Защищающийся</option>
+      </select>
+      <div style="margin-left:auto" class="small">Максимум добивок на раунд: <b id="maxAdd">6</b></div>
+    </div>
   </div>
 
-  <div id="result" class="explain" style="display:none"></div>
-</div>
+  <div class="grid">
+    <div class="panel leftcol">
+      <div class="small">Вся колода — нажми, чтобы отметить карту в своей руке. Для быстрого выбора: два нажатия)</div>
+      <div id="deck" class="row" style="margin-top:8px"></div>
 
-<footer>Поддерживает подсказки для атаки и защиты. Алгоритм — эвристический: минимальные/низкие карты сначала, избегает сжигания козырей.</footer>
+      <div style="margin-top:10px" class="row">
+        <div style="flex:1">
+          <div class="small">Твоя рука — сгруппирована по цветам</div>
+          <div class="row" id="redBucket" style="margin-top:6px"></div>
+        </div>
+        <div style="flex:1">
+          <div class="small">Чёрные</div>
+          <div class="row" id="blackBucket" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px" class="controls">
+        <div class="small">Выделенная карта: <span id="selInfo" class="muted">нет</span></div>
+        <button id="addAttack" class="btn">Add Attack</button>
+        <button id="addDefend" class="btn">Add Defence</button>
+        <button id="undo" class="btn">Undo</button>
+        <button id="save" class="btn">Save</button>
+        <button id="load" class="btn">Load</button>
+      </div>
+
+      <div style="margin-top:8px" class="note small">
+        Подсказки дают 3 варианта:<br>
+        • Экономный — минимально тратит старшие карты/козыри.<br>
+        • Безопасный — чаще покрывает мастью, минимальный риск взять.<br>
+        • Агрессивный — старается давить, вынудить сжечь козыри.
+      </div>
+    </div>
+
+    <div class="panel rightcol">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><b>Стол (пары)</b></div>
+        <div class="row">
+          <button id="bita" class="primary">Бита</button>
+          <button id="clearTable" class="btn">Очистить</button>
+        </div>
+      </div>
+      <div id="table" class="table" style="margin-top:8px"></div>
+
+      <div style="margin-top:8px" class="toolbar">
+        <button id="suggest" class="primary">Suggest</button>
+        <button id="toggleOpponent" class="btn">Отметить карты оппонента</button>
+      </div>
+
+      <div id="suggestResult" style="margin-top:10px"></div>
+
+      <div style="margin-top:8px" class="small">Бита (сброшенные карты): <span id="bitaCount">0</span></div>
+    </div>
+  </div>
+
+  <footer>Масти: черви (♥), буби (♦) — красные; трефы (♣), пики (♠) — чёрные. Нажми карту в руке — она выделится; затем Add Attack / Add Defence.</footer>
+</div>
 
 <script>
 (function(){
-  // Ранги и значения
+  // Ranks and suits
   const ranks = ['6','7','8','9','10','J','Q','K','A'];
   const rankValue = { '6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
   const suits = { C:'♣', D:'♦', H:'♥', S:'♠' };
+  const suitName = { C:'трефы', D:'буби', H:'черви', S:'пики' };
+  const suitColor = { C:'black', D:'red', H:'red', S:'black' };
 
-  // Создать колоду 24 карт
-  const deck = [];
-  for(const r of ranks){
-    for(const s of Object.keys(suits)){
-      deck.push({rank:r,suit:s, id: r + s});
-    }
-  }
-
-  // UI refs
-  const handDiv = document.getElementById('hand');
-  const tableDiv = document.getElementById('tableCards');
+  // DOM
+  const deckDiv = document.getElementById('deck');
+  const redBucket = document.getElementById('redBucket');
+  const blackBucket = document.getElementById('blackBucket');
+  const selInfo = document.getElementById('selInfo');
+  const addAttackBtn = document.getElementById('addAttack');
+  const addDefendBtn = document.getElementById('addDefend');
+  const undoBtn = document.getElementById('undo');
+  const saveBtn = document.getElementById('save');
+  const loadBtn = document.getElementById('load');
+  const tableDiv = document.getElementById('table');
+  const suggestBtn = document.getElementById('suggest');
+  const suggestResult = document.getElementById('suggestResult');
+  const bitaBtn = document.getElementById('bita');
+  const bitaCountEl = document.getElementById('bitaCount');
+  const clearTableBtn = document.getElementById('clearTable');
   const trumpSel = document.getElementById('trump');
   const roleSel = document.getElementById('role');
-  const suggestBtn = document.getElementById('suggestBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const resultDiv = document.getElementById('result');
+  const toggleOppBtn = document.getElementById('toggleOpponent');
+  const maxAddEl = document.getElementById('maxAdd');
 
-  // State
-  let hand = []; // array of card ids
-  let table = []; // array of {attack:cardId, defend:cardId|null}
-  // For simplicity table is represented as flat list of attack cards (if defender: we will add defense pairing UI)
-  // But user can click to add any card as "table card" — assistant will treat them as attack cards when role=defender,
-  // or as existing table ranks when role=attacker.
+  const MAX_ATTACK_CARDS = 6;
+  maxAddEl.textContent = MAX_ATTACK_CARDS;
 
-  // render deck as selectable hand (user picks)
-  function renderHand(){
-    handDiv.innerHTML = '';
+  // deck
+  const deck = [];
+  for(const r of ranks) for(const s of Object.keys(suits)) deck.push({id: r + s, rank:r, suit:s});
+
+  // state
+  let hand = []; // user's cards (ids)
+  let selected = null; // id
+  let table = []; // [{attack:id, defend:id|null}]
+  let bitaCount = 0;
+  let history = []; // for undo: snapshots
+  let opponentCards = []; // optionally marked opponent visible cards
+  let showOpponentMode = false;
+
+  // util
+  function parse(id){ return {rank: id.slice(0,-1), suit: id.slice(-1)}; }
+  function display(id){ const p=parse(id); return p.rank + suits[p.suit]; }
+  function displayFull(id){ const p=parse(id); return `${p.rank}${suits[p.suit]} — ${suitName[p.suit]} (${suitColor[p.suit]})`; }
+  function isTrump(id){ return parse(id).suit === trumpSel.value; }
+  function cmpHigher(a,b,trump){ const pa=parse(a), pb=parse(b); if(pa.suit===pb.suit) return rankValue[pa.rank] > rankValue[pb.rank]; if(pa.suit===trump && pb.suit!==trump) return true; return false; }
+
+  // persist snapshot for undo
+  function snapshot(){
+    history.push({
+      hand: hand.slice(),
+      selected,
+      table: JSON.parse(JSON.stringify(table)),
+      bitaCount,
+      opponentCards: opponentCards.slice()
+    });
+    if(history.length>50) history.shift();
+  }
+  function undo(){
+    if(history.length===0) return;
+    const s = history.pop();
+    hand = s.hand; selected = s.selected; table = s.table; bitaCount = s.bitaCount; opponentCards = s.opponentCards;
+    renderAll();
+  }
+
+  // render deck (select in-hand)
+  function renderDeck(){
+    deckDiv.innerHTML = '';
     deck.forEach(c=>{
       const el = document.createElement('div');
-      el.className = 'card' + (hand.includes(c.id)? ' selected':'');
-      el.textContent = c.rank + suits[c.suit];
-      el.dataset.id = c.id;
-      el.addEventListener('click', ()=>{
-        if(hand.includes(c.id)) hand = hand.filter(x=>x!==c.id);
-        else hand.push(c.id);
-        renderHand();
-      });
-      handDiv.appendChild(el);
+      el.className = 'card small ' + (hand.includes(c.id)? 'selected':'');
+      const p=parse(c.id);
+      el.innerHTML = `<span class="${suitColor[p.suit]==='red'?'suit-red':'suit-black'}">${c.rank}${suits[p.suit]}</span>`;
+      el.onclick = ()=>{
+        // toggle presence in hand
+        snapshot();
+        if(hand.includes(c.id)) { hand = hand.filter(x=>x!==c.id); if(selected===c.id) selected=null; }
+        else { hand.push(c.id); }
+        renderAll();
+      };
+      deckDiv.appendChild(el);
     });
   }
 
-  // render table choices (allow toggling selections to indicate cards on table)
+  function renderBuckets(){
+    redBucket.innerHTML = ''; blackBucket.innerHTML = '';
+    // sort hand by suit+rank
+    const sorted = hand.slice().sort((a,b)=>{
+      const pa=parse(a), pb=parse(b);
+      if(suitColor[pa.suit] !== suitColor[pb.suit]) return suitColor[pa.suit] === 'red' ? -1 : 1;
+      if(pa.suit!==pb.suit) return pa.suit.localeCompare(pb.suit);
+      return rankValue[pa.rank]-rankValue[pb.rank];
+    });
+    sorted.forEach(id=>{
+      const p=parse(id);
+      const el = document.createElement('div');
+      el.className = 'card small ' + (selected===id? 'selected':'');
+      el.innerHTML = `<span class="${suitColor[p.suit]==='red'?'suit-red':'suit-black'}">${p.rank}${suits[p.suit]}</span>`;
+      el.onclick = ()=>{
+        selected = id; renderAll();
+      };
+      if(suitColor[p.suit]==='red') redBucket.appendChild(el); else blackBucket.appendChild(el);
+    });
+    selInfo.textContent = selected ? displayFull(selected) : 'нет';
+  }
+
   function renderTable(){
     tableDiv.innerHTML = '';
-    deck.forEach(c=>{
-      const el = document.createElement('div');
-      el.className = 'card' + (table.includes(c.id)? ' selected':'');
-      el.textContent = c.rank + suits[c.suit];
-      el.dataset.id = c.id;
-      el.addEventListener('click', ()=>{
-        if(table.includes(c.id)) table = table.filter(x=>x!==c.id);
-        else table.push(c.id);
-        renderTable();
-      });
-      tableDiv.appendChild(el);
+    if(table.length===0){ tableDiv.textContent = '(стол пуст)'; return; }
+    table.forEach((pair, idx)=>{
+      const row = document.createElement('div'); row.className='pair';
+      const attack = document.createElement('div'); attack.className='attack';
+      attack.textContent = pair.attack ? display(pair.attack) : '-';
+      const defend = document.createElement('div'); defend.className='defend';
+      defend.textContent = pair.defend ? display(pair.defend) : '-';
+      const info = document.createElement('div'); info.className='small muted';
+      info.style.flex='1';
+      info.innerHTML = `Пара ${idx+1}: ${pair.attack? displayFull(pair.attack): '—'} → ${pair.defend? displayFull(pair.defend): '—'}`;
+      // click on attack/defend to remove (for quick edit) — require confirmation
+      attack.onclick = ()=>{
+        if(!pair.attack) return;
+        if(confirm('Удалить эту атакующую карту (вернуть в руку)?')){ snapshot(); hand.push(pair.attack); pair.attack=null; renderAll(); }
+      };
+      defend.onclick = ()=>{
+        if(!pair.defend) return;
+        if(confirm('Удалить эту защиту (вернуть в руку)?')){ snapshot(); hand.push(pair.defend); pair.defend=null; renderAll(); }
+      };
+      row.appendChild(attack); row.appendChild(defend); row.appendChild(info);
+      tableDiv.appendChild(row);
     });
   }
 
-  function parseId(id){
-    // id like '9H' or '10S'
-    const suit = id.slice(-1);
-    const rank = id.slice(0, id.length-1);
-    return {rank,suit};
-  }
-  function cmpCard(aId,bId,trump){
-    // returns true if a > b (for attack compare: a can beat b)
-    const a = parseId(aId), b = parseId(bId);
-    if(a.suit === b.suit) return rankValue[a.rank] > rankValue[b.rank];
-    // if suits differ and a is trump and b not -> a wins
-    if(a.suit === trump && b.suit !== trump) return true;
-    return false;
+  function renderBita(){
+    bitaCountEl.textContent = bitaCount;
   }
 
-  function cardIsTrump(id,trump){ return parseId(id).suit === trump; }
+  function renderAll(){
+    renderDeck(); renderBuckets(); renderTable(); renderBita(); renderSuggest(); // keep suggest updated
+  }
 
-  function sortHandForDisplay(arr,trump){
-    // sort by: non-trumps ascending, then trumps ascending
-    return arr.slice().sort((x,y)=>{
-      const a=parseId(x), b=parseId(y);
-      const at = a.suit===trump, bt = b.suit===trump;
-      if(at!==bt) return (at?1:-1); // non-trumps first
-      if(a.suit!==b.suit) return a.suit.localeCompare(b.suit);
-      return rankValue[a.rank] - rankValue[b.rank];
+  // add attack / defend
+  addAttackBtn.onclick = ()=>{
+    if(!selected){ alert('Выдели карту в своей руке (нажми в разделе Красные/Чёрные).'); return; }
+    // check attack limits: number of attack cards (attacks on table) < MAX_ATTACK_CARDS
+    const attackCount = table.filter(p=>p.attack).length;
+    if(attackCount >= MAX_ATTACK_CARDS){ alert('Достигнут лимит атакующих карт (6).'); return; }
+    snapshot();
+    // add new pair with attack = selected
+    table.push({attack:selected, defend:null});
+    hand = hand.filter(x=>x!==selected);
+    selected = null;
+    renderAll();
+  };
+
+  addDefendBtn.onclick = ()=>{
+    if(!selected){ alert('Выдели карту в своей руке для защиты.'); return; }
+    // find first attack without defend (in order)
+    const idx = table.findIndex(p=>p.attack && !p.defend);
+    if(idx===-1){ alert('Нет открытых атак для защиты.'); return; }
+    snapshot();
+    table[idx].defend = selected;
+    hand = hand.filter(x=>x!==selected);
+    selected = null;
+    renderAll();
+  };
+
+  // bita: move all fully defended pairs to discard (bita), and return any remaining cards from incomplete pairs to table/hand?
+  bitaBtn.onclick = ()=>{
+    if(table.length===0) { alert('Стол пуст.'); return; }
+    // ensure all attacks are covered
+    const uncovered = table.filter(p=>p.attack && !p.defend);
+    if(uncovered.length>0){
+      if(!confirm('Есть не покрытые атаки. Всё равно пометить как бита? (Не рекомендую)')) return;
+    }
+    snapshot();
+    // For each pair where attack present, move both cards (if present) to bita (discard)
+    let moved = 0;
+    table.forEach(p=>{
+      if(p.attack){ moved++; p.attack=null; }
+      if(p.defend){ moved++; p.defend=null; }
     });
-  }
+    bitaCount += moved;
+    // clean empty pairs
+    table = table.filter(p=>p.attack || p.defend);
+    renderAll();
+    alert('Пары отправлены в биту.'); 
+  };
 
-  // Suggestion algorithms
-  function suggestAttack(handArr, tableArr, trump){
-    // If table empty (new attack), suggest best opening card
-    // Heuristic: play lowest non-trump card; prefer ranks that you have duplicates of (to enable follow-ups)
-    const handSorted = sortHandForDisplay(handArr, trump);
-    // prefer non-trump lowest:
-    const nonTrumps = handSorted.filter(id=>!cardIsTrump(id,trump));
-    if(nonTrumps.length){
-      // prefer a low card whose rank we have multiple of -> better for later
-      for(const id of nonTrumps){
-        const r = parseId(id).rank;
-        const copies = handArr.filter(h=>parseId(h).rank===r).length;
-        if(copies>1) return {card:id, reason:`Открывай низкой картой ${id}. У тебя ${copies} таких рангов — можно добивать.`};
-      }
-      // otherwise return lowest non-trump
-      return {card: nonTrumps[0], reason: `Открывай низкой не-козырной картой ${nonTrumps[0]} — не трать козыри.`};
-    } else {
-      // only trumps -> play lowest trump
-      return {card: handSorted[0], reason: `У тебя только козыри — открой самым низким козырём ${handSorted[0]}.`};
+  clearTableBtn.onclick = ()=>{
+    if(table.length===0) return;
+    if(!confirm('Очистить стол и вернуть карты в руку?')) return;
+    snapshot();
+    table.forEach(p=>{ if(p.attack) hand.push(p.attack); if(p.defend) hand.push(p.defend); });
+    table = [];
+    renderAll();
+  };
+
+  // undo / save / load
+  undoBtn.onclick = ()=>{ undo(); };
+  saveBtn.onclick = ()=>{
+    const state = {hand, table, bitaCount, opponentCards, selected};
+    localStorage.setItem('durak_pro_state', JSON.stringify(state));
+    alert('Состояние сохранено локально.');
+  };
+  loadBtn.onclick = ()=>{
+    const s = localStorage.getItem('durak_pro_state');
+    if(!s){ alert('Нет сохранений.'); return; }
+    if(!confirm('Загрузить сохранённое состояние (текущее будет заменено)?')) return;
+    snapshot();
+    const state = JSON.parse(s);
+    hand = state.hand || []; table = state.table || []; bitaCount = state.bitaCount || 0; opponentCards = state.opponentCards || []; selected = state.selected || null;
+    renderAll();
+  };
+
+  // opponent toggle — allow marking opponent visible cards (for analysis)
+  toggleOppBtn.onclick = ()=>{
+    showOpponentMode = !showOpponentMode;
+    toggleOppBtn.textContent = showOpponentMode ? 'Отметить карты оппонента (ВЫКЛ)' : 'Отметить карты оппонента';
+    if(showOpponentMode){
+      // allow clicking on deck to mark opponent cards (shift behaviour): long press not available — we'll use double-click
+      alert('Теперь двойной тап по карте пометит её как видимую у оппонента. Повторный двойной тап снимет.');
     }
-  }
+  };
 
-  function suggestFollowAttack(handArr, tableArr, trump){
-    // When there are ranks on table, good to add cards matching ranks present (добивание)
-    // Strategy: list possible cards from hand that match any rank on table (prefer low non-trumps)
-    const presentRanks = new Set(tableArr.map(id=>parseId(id).rank));
-    const candidates = handArr.filter(id=>presentRanks.has(parseId(id).rank));
-    if(!candidates.length) return {card:null, reason:'Нет карты соответствующего ранга для добивания.'};
-    // prefer non-trumps and low
-    const sorted = sortHandForDisplay(candidates,trump);
-    return {card: sorted[0], reason: `Добивай картой ${sorted[0]} (совпадает по рангу со столом).`};
-  }
-
-  function suggestDefense(handArr, tableArr, trump){
-    // We expect attacker cards on tableArr in order; helper will suggest cover for each attack card
-    // For simplicity, we will assume tableArr are attack cards that need covering.
-    const advice = [];
-    const handCopy = handArr.slice();
-    for(const att of tableArr){
-      // find minimal same-suit larger
-      const a = parseId(att);
-      const sameSuitCandidates = handCopy.filter(h=>{
-        const p=parseId(h);
-        return p.suit===a.suit && rankValue[p.rank] > rankValue[a.rank];
-      }).sort((x,y)=> rankValue[parseId(x).rank]-rankValue[parseId(y).rank]);
-
-      if(sameSuitCandidates.length){
-        const chosen = sameSuitCandidates[0];
-        advice.push({attack:att, defend:chosen, reason:`Покрой ${att} минимальной ${chosen} той же масти.`});
-        handCopy.splice(handCopy.indexOf(chosen),1);
-        continue;
+  // double-click handling for deck (mark opponent) — simple approach: count taps quickly
+  let lastTap = 0;
+  deckDiv.addEventListener('click', e=>{
+    const now = Date.now();
+    const target = e.target.closest('.card');
+    if(!target) return;
+    const idIndex = Array.from(deckDiv.children).indexOf(target);
+    const card = deck[idIndex];
+    if(!card) return;
+    if(now - lastTap < 400){
+      // double tap
+      if(showOpponentMode){
+        snapshot();
+        if(opponentCards.includes(card.id)) opponentCards = opponentCards.filter(x=>x!==card.id);
+        else opponentCards.push(card.id);
+        target.style.opacity = opponentCards.includes(card.id)? '1' : (hand.includes(card.id)? '1' : '0.45');
+        renderSuggest();
       }
-      // else find minimal trump
-      const trumpCandidates = handCopy.filter(h=>parseId(h).suit===trump).sort((x,y)=>rankValue[parseId(x).rank]-rankValue[parseId(y).rank]);
-      if(trumpCandidates.length){
-        const chosen = trumpCandidates[0];
-        advice.push({attack:att, defend:chosen, reason:`Нет нужной масти — побей козырём ${chosen}.`});
-        handCopy.splice(handCopy.indexOf(chosen),1);
-        continue;
-      }
-      // cannot defend
-      advice.push({attack:att, defend:null, reason:`Нельзя покрыть ${att}. Рекомендуется брать (take).`});
-      // after take — defender will pick up all table cards, stop suggesting further covers
-      break;
     }
-    return advice;
-  }
-
-  // Main suggest handler
-  function onSuggest(){
-    resultDiv.style.display='block';
-    resultDiv.innerHTML = '';
-    const trump = trumpSel.value;
-    const role = roleSel.value;
-    // keep only cards that user marked in hand/table
-    // hand and table are arrays of ids set via UI
-    if(hand.length===0){
-      resultDiv.innerHTML = '<b>Ваша рука пуста — выберите карты.</b>';
-      return;
-    }
-    if(role === 'attacker'){
-      // If table empty -> opening
-      if(table.length===0){
-        const s = suggestAttack(hand, table, trump);
-        resultDiv.innerHTML = `<b>Рекомендация (атака):</b><br>Играй <b>${displayCard(s.card)}</b>.<br><div class="small">Почему: ${s.reason}</div>`;
-      } else {
-        // try follow-up (добивание)
-        const s = suggestFollowAttack(hand, table, trump);
-        if(s.card){
-          resultDiv.innerHTML = `<b>Рекомендация (добивание):</b><br>Положи <b>${displayCard(s.card)}</b>.<br><div class="small">Почему: ${s.reason}</div>`;
-        } else {
-          // maybe suggest opening another rank if allowed
-          resultDiv.innerHTML = `<b>Рекомендация (атака):</b><br>Нет карт для добивания (совпадений по рангу).<br><div class="small">Попробуй открыть другой ранг низкой картой: ${displayCard(suggestAttack(hand,table,trump).card)}.</div>`;
-        }
-      }
-    } else { // defender
-      if(table.length===0){
-        resultDiv.innerHTML = `<b>Защита:</b> На столе нет атакующих карт — жди хода соперника.`;
-        return;
-      }
-      // treat table as list of attack cards
-      const advice = suggestDefense(hand, table, trump);
-      let out = `<b>Рекомендации по защите:</b><br>`;
-      advice.forEach(a=>{
-        out += `Атакующая карта ${displayCard(a.attack)} → `;
-        if(a.defend) out += `<b>${displayCard(a.defend)}</b>.`;
-        else out += `<b>Берём(не можем покрыть)</b>.`;
-        out += `<div class="small">(${a.reason})</div>`;
-      });
-      resultDiv.innerHTML = out;
-    }
-  }
-
-  function displayCard(id){ const p=parseId(id); return `${p.rank}${suits[p.suit]}`; }
-
-  // events
-  suggestBtn.addEventListener('click', onSuggest);
-  clearBtn.addEventListener('click', ()=>{
-    hand = []; table = []; renderHand(); renderTable(); resultDiv.style.display='none';
+    lastTap = now;
   });
 
-  // init
-  renderHand();
-  renderTable();
+  // Suggest logic — produce 3 ranked options
+  function suggestMove(){
+    const role = roleSel.value;
+    if(role==='attacker') return suggestAttackOptions();
+    return suggestDefenseOptions();
+  }
 
+  // Helper: get present ranks on table (attack and defend)
+  function presentRanks(){
+    const s = new Set();
+    table.forEach(p=>{ if(p.attack) s.add(parse(p.attack).rank); if(p.defend) s.add(parse(p.defend).rank); });
+    return s;
+  }
+
+  function suggestAttackOptions(){
+    const trump = trumpSel.value;
+    const res = [];
+    // Option 1: экономный — lowest non-trump, prefer duplicate ranks
+    const nonTrumps = hand.filter(id=>!isTrump(id)).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+    if(nonTrumps.length){
+      let pick = nonTrumps.find(id=> hand.filter(h=>parse(h).rank===parse(id).rank).length>1) || nonTrumps[0];
+      res.push({type:'Экономный', card:pick, reason:`Не трать козыри: открой низкой не-козырной картой ${displayFull(pick)}.`});
+    } else if(hand.length){
+      const pick = hand.slice().sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank])[0];
+      res.push({type:'Экономный', card:pick, reason:`У тебя только козыри — открой минимальным козырём ${displayFull(pick)}.`});
+    } else res.push({type:'Экономный', card:null, reason:'Рука пуста.'});
+
+    // Option 2: безопасный — choose card with unique rank to avoid помогать добивом (if table empty)
+    if(table.length===0){
+      const uniq = hand.filter(id=> hand.filter(h=>parse(h).rank===parse(id).rank).length===1 ).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(uniq.length) res.push({type:'Безопасный', card:uniq[0], reason:`Безопасная игра: открой картой, которой у тебя только одна (${displayFull(uniq[0])}).`});
+      else res.push({type:'Безопасный', card:res[0].card, reason:'Безопасная опция — похожа на экономную.'});
+    } else {
+      // follow-up: pick a card matching ranks on table (to добивать) — safe: prefer non-trump low matching
+      const present = presentRanks();
+      const candidates = hand.filter(id=>present.has(parse(id).rank)).sort((a,b)=>{
+        const at=isTrump(a), bt=isTrump(b); if(at!==bt) return at?1:-1; return rankValue[parse(a).rank]-rankValue[parse(b).rank];
+      });
+      if(candidates.length) res.push({type:'Безопасный', card:candidates[0], reason:`Добивай ${displayFull(candidates[0])} — совпадает по рангу со столом.`});
+      else res.push({type:'Безопасный', card:null, reason:'Нет карт для добивания по рангу.'});
+    }
+
+    // Option 3: агрессивный — play highest non-trump or high trump if want to press
+    const nonTrumpHigh = hand.filter(id=>!isTrump(id)).sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank]);
+    if(nonTrumpHigh.length) res.push({type:'Агрессивный', card:nonTrumpHigh[0], reason:`Агрессивно: положи старшую не-козырную ${displayFull(nonTrumpHigh[0])} — дави соперника.`});
+    else if(hand.length) {
+      const high = hand.slice().sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank])[0];
+      res.push({type:'Агрессивный', card:high, reason:`Агрессивно — сильный козырь ${displayFull(high)}.`});
+    } else res.push({type:'Агрессивный', card:null, reason:'Рука пуста.'});
+
+    return res;
+  }
+
+  function suggestDefenseOptions(){
+    const trump = trumpSel.value;
+    const advice = [];
+    // We'll simulate available cards set
+    let available = hand.slice();
+    // go through first uncovered attack
+    const toCover = table.filter(p=>p.attack && !p.defend);
+    if(toCover.length===0) return [{type:'Защита', defendList:[], reason:'На столе нет не покрытых атак.'}];
+    // We'll provide three strategies across the list of attacks:
+    // Strategy A (Экономный): try minimal same-suit, avoid trumps if possible
+    const econ = [];
+    let availE = available.slice();
+    for(const p of toCover){
+      const same = availE.filter(h=>parse(h).suit===parse(p.attack).suit && rankValue[parse(h).rank] > rankValue[parse(p.attack).rank])
+                      .sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(same.length){ econ.push({attack:p.attack, defend:same[0], reason:`Минимально той же масти ${display(same[0])}`}); availE = availE.filter(x=>x!==same[0]); continue; }
+      const tr = availE.filter(h=>parse(h).suit===trump).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(tr.length){ econ.push({attack:p.attack, defend:tr[0], reason:`Побей козырём ${display(tr[0])}`}); availE = availE.filter(x=>x!==tr[0]); continue; }
+      econ.push({attack:p.attack, defend:null, reason:`Не покрыть — придётся брать`}); break;
+    }
+
+    // Strategy B (Безопасный): prefer same-suit with slightly higher rank (reserve lowest trumps)
+    const safe = [];
+    let availS = available.slice();
+    for(const p of toCover){
+      const same = availS.filter(h=>parse(h).suit===parse(p.attack).suit && rankValue[parse(h).rank] > rankValue[parse(p.attack).rank])
+                      .sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(same.length){ // pick slightly higher but not highest
+        const pick = same.length>1 ? same[0] : same[0];
+        safe.push({attack:p.attack, defend:pick, reason:`Покрыть ${display(p.attack)} ${display(pick)} той же масти`});
+        availS = availS.filter(x=>x!==pick); continue;
+      }
+      const tr = availS.filter(h=>parse(h).suit===trump).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(tr.length){
+        const pick = tr[0];
+        safe.push({attack:p.attack, defend:pick, reason:`Побить козырём ${display(pick)} (если нужно)`});
+        availS = availS.filter(x=>x!==pick); continue;
+      }
+      safe.push({attack:p.attack, defend:null, reason:`Нельзя покрыть — берём`}); break;
+    }
+
+    // Strategy C (Агрессивный): use high cards to keep opponent weak or use trumps
+    const aggr = [];
+    let availA = available.slice();
+    for(const p of toCover){
+      // prefer high same-suit or medium trumps
+      const sameHigh = availA.filter(h=>parse(h).suit===parse(p.attack).suit && rankValue[parse(h).rank] > rankValue[parse(p.attack).rank])
+                      .sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank]);
+      if(sameHigh.length){ aggr.push({attack:p.attack, defend:sameHigh[0], reason:`Ударить сильной картой ${display(sameHigh[0])}`}); availA = availA.filter(x=>x!==sameHigh[0]); continue; }
+      const trHigh = availA.filter(h=>parse(h).suit===trump).sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank]);
+      if(trHigh.length){ aggr.push({attack:p.attack, defend:trHigh[0], reason:`Использовать козырь ${display(trHigh[0])}`}); availA = availA.filter(x=>x!==trHigh[0]); continue; }
+      aggr.push({attack:p.attack, defend:null, reason:`Нельзя покрыть — берём`}); break;
+    }
+
+    return [
+      {type:'Экономная защита', list:econ},
+      {type:'Безопасная защита', list:safe},
+      {type:'Агрессивная защита', list:aggr}
+    ];
+  }
+
+  // render suggest area
+  function renderSuggest(){
+    // keep minimal info; suggestBtn will produce detailed output on click
+    // here we can show counts and quick hints
+    suggestResult.innerHTML = `<div class="small">Рука: ${hand.length} карт. Стол: ${table.length} пар. Бита: ${bitaCount} карт.</div>`;
+  }
+
+  suggestBtn.onclick = ()=>{
+    snapshot();
+    const role = roleSel.value;
+    const out = document.createElement('div');
+    out.className = 'panel';
+    if(role==='attacker'){
+      const opts = suggestAttackOptions();
+      out.innerHTML = `<b>Подсказки для атаки</b>`;
+      opts.forEach(o=>{
+        const el = document.createElement('div');
+        el.style.marginTop='8px';
+        el.innerHTML = `<b>${o.type}</b>: ${o.card? displayFull(o.card) : '—' }<div class="small">${o.reason}</div>`;
+        out.appendChild(el);
+      });
+    } else {
+      const sets = suggestDefenseOptions();
+      out.innerHTML = `<b>Подсказки для защиты</b>`;
+      sets.forEach(set=>{
+        const el = document.createElement('div'); el.style.marginTop='8px';
+        el.innerHTML = `<b>${set.type}</b>`;
+        set.list.forEach(item=>{
+          const li = document.createElement('div'); li.className='small';
+          li.innerHTML = `Атака ${display(item.attack)} → ${item.defend? displayFull(item.defend) : '<b>Берём</b>' } — ${item.reason}`;
+          el.appendChild(li);
+        });
+        out.appendChild(el);
+      });
+    }
+    suggestResult.innerHTML = '';
+    suggestResult.appendChild(out);
+  };
+
+  // For compatibility show attack options quickly too
+  function suggestAttackOptions(){
+    // reuse earlier function but return array of objects (Экономный, Безопасный, Агрессивный)
+    const trump = trumpSel.value;
+    const result = [];
+
+    const nonTrumps = hand.filter(id=>!isTrump(id)).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+    if(nonTrumps.length){
+      let pick = nonTrumps.find(id=> hand.filter(h=>parse(h).rank===parse(id).rank).length>1) || nonTrumps[0];
+      result.push({type:'Экономный', card:pick, reason:`Не трать козыри — открой низкой не-козырной ${displayFull(pick)}.`});
+    } else if(hand.length){
+      const pick = hand.slice().sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank])[0];
+      result.push({type:'Экономный', card:pick, reason:`Только козыри — открой минимальным ${displayFull(pick)}.`});
+    } else result.push({type:'Экономный', card:null, reason:'Рука пуста.'});
+
+    // безопасный
+    if(table.length===0){
+      const uniq = hand.filter(id=> hand.filter(h=>parse(h).rank===parse(id).rank).length===1 ).sort((a,b)=>rankValue[parse(a).rank]-rankValue[parse(b).rank]);
+      if(uniq.length) result.push({type:'Безопасный', card:uniq[0], reason:`Открой картой, которой у тебя одна (${displayFull(uniq[0])}).`});
+      else result.push({type:'Безопасный', card:result[0].card, reason:'Безопасный ход — похож на экономный.'});
+    } else {
+      const present = presentRanks();
+      const candidates = hand.filter(id=>present.has(parse(id).rank)).sort((a,b)=>{
+        const at=isTrump(a), bt=isTrump(b); if(at!==bt) return at?1:-1; return rankValue[parse(a).rank]-rankValue[parse(b).rank];
+      });
+      if(candidates.length) result.push({type:'Безопасный', card:candidates[0], reason:`Добивай ${displayFull(candidates[0])} — совпадает по рангу со столом.`});
+      else result.push({type:'Безопасный', card:null, reason:'Нет карт для добивания.'});
+    }
+
+    // агрессивный
+    const nonTrumpHigh = hand.filter(id=>!isTrump(id)).sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank]);
+    if(nonTrumpHigh.length) result.push({type:'Агрессивный', card:nonTrumpHigh[0], reason:`Поставь сильную не-козырную ${displayFull(nonTrumpHigh[0])}.`});
+    else if(hand.length){
+      const high = hand.slice().sort((a,b)=>rankValue[parse(b).rank]-rankValue[parse(a).rank])[0];
+      result.push({type:'Агрессивный', card:high, reason:`Сильный козырь ${displayFull(high)}.`});
+    } else result.push({type:'Агрессивный', card:null, reason:'Рука пуста.'});
+
+    return result;
+  }
+
+  // initial render
+  renderAll();
+
+  // expose for debug
+  window.durak_pro = {hand, table, snapshot, undo};
 })();
 </script>
 </body>

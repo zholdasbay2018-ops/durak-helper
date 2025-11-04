@@ -1,1 +1,280 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Durak Helper — 24 карты</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:12px;color:#111}
+  h1{font-size:18px;margin:6px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  select,input,button{font-size:16px;padding:8px;border-radius:6px;border:1px solid #ccc}
+  .card{padding:6px 8px;border-radius:6px;border:1px solid #bbb;cursor:pointer;user-select:none}
+  .card.selected{background:#def;border-color:#58a}
+  .panel{border:1px solid #eee;padding:10px;border-radius:8px;margin:8px 0;background:#fafafa}
+  .small{font-size:13px;color:#555}
+  .table-cards{display:flex;gap:6px;flex-wrap:wrap}
+  .suggest{background:#0a84ff;color:white;border:none;padding:10px 12px;border-radius:8px}
+  .explain{margin-top:8px;background:#fff7e6;border:1px solid #ffd79a;padding:8px;border-radius:6px}
+  label{display:block;margin-top:6px}
+  .cardlist{display:flex;gap:6px;flex-wrap:wrap}
+  footer{font-size:12px;color:#666;margin-top:14px}
+</style>
+</head>
+<body>
+<h1>Durak Helper — 24 карты (веб, iPhone)</h1>
+<div class="panel">
+  <div class="small">Выбери карты в своей руке (нажми на карты), выбери козырь и роль, затем добавь карты на стол.</div>
 
+  <label>Ваша рука:</label>
+  <div id="hand" class="cardlist"></div>
+
+  <label>Козырь:</label>
+  <select id="trump">
+    <option value="C">♣ Треф (C)</option>
+    <option value="D">♦ Буби (D)</option>
+    <option value="H">♥ Черви (H)</option>
+    <option value="S">♠ Пики (S)</option>
+  </select>
+
+  <label>Роль:</label>
+  <select id="role">
+    <option value="attacker">Атакующий</option>
+    <option value="defender">Защищающийся</option>
+  </select>
+
+  <label>Карты на столе (атака / покрытия). Нажми чтобы добавить в массив стола:</label>
+  <div class="table-cards" id="tableCards"></div>
+
+  <div style="margin-top:10px">
+    <button id="suggestBtn" class="suggest">Suggest</button>
+    <button id="clearBtn" style="margin-left:8px">Clear</button>
+  </div>
+
+  <div id="result" class="explain" style="display:none"></div>
+</div>
+
+<footer>Поддерживает подсказки для атаки и защиты. Алгоритм — эвристический: минимальные/низкие карты сначала, избегает сжигания козырей.</footer>
+
+<script>
+(function(){
+  // Ранги и значения
+  const ranks = ['6','7','8','9','10','J','Q','K','A'];
+  const rankValue = { '6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14 };
+  const suits = { C:'♣', D:'♦', H:'♥', S:'♠' };
+
+  // Создать колоду 24 карт
+  const deck = [];
+  for(const r of ranks){
+    for(const s of Object.keys(suits)){
+      deck.push({rank:r,suit:s, id: r + s});
+    }
+  }
+
+  // UI refs
+  const handDiv = document.getElementById('hand');
+  const tableDiv = document.getElementById('tableCards');
+  const trumpSel = document.getElementById('trump');
+  const roleSel = document.getElementById('role');
+  const suggestBtn = document.getElementById('suggestBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const resultDiv = document.getElementById('result');
+
+  // State
+  let hand = []; // array of card ids
+  let table = []; // array of {attack:cardId, defend:cardId|null}
+  // For simplicity table is represented as flat list of attack cards (if defender: we will add defense pairing UI)
+  // But user can click to add any card as "table card" — assistant will treat them as attack cards when role=defender,
+  // or as existing table ranks when role=attacker.
+
+  // render deck as selectable hand (user picks)
+  function renderHand(){
+    handDiv.innerHTML = '';
+    deck.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'card' + (hand.includes(c.id)? ' selected':'');
+      el.textContent = c.rank + suits[c.suit];
+      el.dataset.id = c.id;
+      el.addEventListener('click', ()=>{
+        if(hand.includes(c.id)) hand = hand.filter(x=>x!==c.id);
+        else hand.push(c.id);
+        renderHand();
+      });
+      handDiv.appendChild(el);
+    });
+  }
+
+  // render table choices (allow toggling selections to indicate cards on table)
+  function renderTable(){
+    tableDiv.innerHTML = '';
+    deck.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'card' + (table.includes(c.id)? ' selected':'');
+      el.textContent = c.rank + suits[c.suit];
+      el.dataset.id = c.id;
+      el.addEventListener('click', ()=>{
+        if(table.includes(c.id)) table = table.filter(x=>x!==c.id);
+        else table.push(c.id);
+        renderTable();
+      });
+      tableDiv.appendChild(el);
+    });
+  }
+
+  function parseId(id){
+    // id like '9H' or '10S'
+    const suit = id.slice(-1);
+    const rank = id.slice(0, id.length-1);
+    return {rank,suit};
+  }
+  function cmpCard(aId,bId,trump){
+    // returns true if a > b (for attack compare: a can beat b)
+    const a = parseId(aId), b = parseId(bId);
+    if(a.suit === b.suit) return rankValue[a.rank] > rankValue[b.rank];
+    // if suits differ and a is trump and b not -> a wins
+    if(a.suit === trump && b.suit !== trump) return true;
+    return false;
+  }
+
+  function cardIsTrump(id,trump){ return parseId(id).suit === trump; }
+
+  function sortHandForDisplay(arr,trump){
+    // sort by: non-trumps ascending, then trumps ascending
+    return arr.slice().sort((x,y)=>{
+      const a=parseId(x), b=parseId(y);
+      const at = a.suit===trump, bt = b.suit===trump;
+      if(at!==bt) return (at?1:-1); // non-trumps first
+      if(a.suit!==b.suit) return a.suit.localeCompare(b.suit);
+      return rankValue[a.rank] - rankValue[b.rank];
+    });
+  }
+
+  // Suggestion algorithms
+  function suggestAttack(handArr, tableArr, trump){
+    // If table empty (new attack), suggest best opening card
+    // Heuristic: play lowest non-trump card; prefer ranks that you have duplicates of (to enable follow-ups)
+    const handSorted = sortHandForDisplay(handArr, trump);
+    // prefer non-trump lowest:
+    const nonTrumps = handSorted.filter(id=>!cardIsTrump(id,trump));
+    if(nonTrumps.length){
+      // prefer a low card whose rank we have multiple of -> better for later
+      for(const id of nonTrumps){
+        const r = parseId(id).rank;
+        const copies = handArr.filter(h=>parseId(h).rank===r).length;
+        if(copies>1) return {card:id, reason:`Открывай низкой картой ${id}. У тебя ${copies} таких рангов — можно добивать.`};
+      }
+      // otherwise return lowest non-trump
+      return {card: nonTrumps[0], reason: `Открывай низкой не-козырной картой ${nonTrumps[0]} — не трать козыри.`};
+    } else {
+      // only trumps -> play lowest trump
+      return {card: handSorted[0], reason: `У тебя только козыри — открой самым низким козырём ${handSorted[0]}.`};
+    }
+  }
+
+  function suggestFollowAttack(handArr, tableArr, trump){
+    // When there are ranks on table, good to add cards matching ranks present (добивание)
+    // Strategy: list possible cards from hand that match any rank on table (prefer low non-trumps)
+    const presentRanks = new Set(tableArr.map(id=>parseId(id).rank));
+    const candidates = handArr.filter(id=>presentRanks.has(parseId(id).rank));
+    if(!candidates.length) return {card:null, reason:'Нет карты соответствующего ранга для добивания.'};
+    // prefer non-trumps and low
+    const sorted = sortHandForDisplay(candidates,trump);
+    return {card: sorted[0], reason: `Добивай картой ${sorted[0]} (совпадает по рангу со столом).`};
+  }
+
+  function suggestDefense(handArr, tableArr, trump){
+    // We expect attacker cards on tableArr in order; helper will suggest cover for each attack card
+    // For simplicity, we will assume tableArr are attack cards that need covering.
+    const advice = [];
+    const handCopy = handArr.slice();
+    for(const att of tableArr){
+      // find minimal same-suit larger
+      const a = parseId(att);
+      const sameSuitCandidates = handCopy.filter(h=>{
+        const p=parseId(h);
+        return p.suit===a.suit && rankValue[p.rank] > rankValue[a.rank];
+      }).sort((x,y)=> rankValue[parseId(x).rank]-rankValue[parseId(y).rank]);
+
+      if(sameSuitCandidates.length){
+        const chosen = sameSuitCandidates[0];
+        advice.push({attack:att, defend:chosen, reason:`Покрой ${att} минимальной ${chosen} той же масти.`});
+        handCopy.splice(handCopy.indexOf(chosen),1);
+        continue;
+      }
+      // else find minimal trump
+      const trumpCandidates = handCopy.filter(h=>parseId(h).suit===trump).sort((x,y)=>rankValue[parseId(x).rank]-rankValue[parseId(y).rank]);
+      if(trumpCandidates.length){
+        const chosen = trumpCandidates[0];
+        advice.push({attack:att, defend:chosen, reason:`Нет нужной масти — побей козырём ${chosen}.`});
+        handCopy.splice(handCopy.indexOf(chosen),1);
+        continue;
+      }
+      // cannot defend
+      advice.push({attack:att, defend:null, reason:`Нельзя покрыть ${att}. Рекомендуется брать (take).`});
+      // after take — defender will pick up all table cards, stop suggesting further covers
+      break;
+    }
+    return advice;
+  }
+
+  // Main suggest handler
+  function onSuggest(){
+    resultDiv.style.display='block';
+    resultDiv.innerHTML = '';
+    const trump = trumpSel.value;
+    const role = roleSel.value;
+    // keep only cards that user marked in hand/table
+    // hand and table are arrays of ids set via UI
+    if(hand.length===0){
+      resultDiv.innerHTML = '<b>Ваша рука пуста — выберите карты.</b>';
+      return;
+    }
+    if(role === 'attacker'){
+      // If table empty -> opening
+      if(table.length===0){
+        const s = suggestAttack(hand, table, trump);
+        resultDiv.innerHTML = `<b>Рекомендация (атака):</b><br>Играй <b>${displayCard(s.card)}</b>.<br><div class="small">Почему: ${s.reason}</div>`;
+      } else {
+        // try follow-up (добивание)
+        const s = suggestFollowAttack(hand, table, trump);
+        if(s.card){
+          resultDiv.innerHTML = `<b>Рекомендация (добивание):</b><br>Положи <b>${displayCard(s.card)}</b>.<br><div class="small">Почему: ${s.reason}</div>`;
+        } else {
+          // maybe suggest opening another rank if allowed
+          resultDiv.innerHTML = `<b>Рекомендация (атака):</b><br>Нет карт для добивания (совпадений по рангу).<br><div class="small">Попробуй открыть другой ранг низкой картой: ${displayCard(suggestAttack(hand,table,trump).card)}.</div>`;
+        }
+      }
+    } else { // defender
+      if(table.length===0){
+        resultDiv.innerHTML = `<b>Защита:</b> На столе нет атакующих карт — жди хода соперника.`;
+        return;
+      }
+      // treat table as list of attack cards
+      const advice = suggestDefense(hand, table, trump);
+      let out = `<b>Рекомендации по защите:</b><br>`;
+      advice.forEach(a=>{
+        out += `Атакующая карта ${displayCard(a.attack)} → `;
+        if(a.defend) out += `<b>${displayCard(a.defend)}</b>.`;
+        else out += `<b>Берём(не можем покрыть)</b>.`;
+        out += `<div class="small">(${a.reason})</div>`;
+      });
+      resultDiv.innerHTML = out;
+    }
+  }
+
+  function displayCard(id){ const p=parseId(id); return `${p.rank}${suits[p.suit]}`; }
+
+  // events
+  suggestBtn.addEventListener('click', onSuggest);
+  clearBtn.addEventListener('click', ()=>{
+    hand = []; table = []; renderHand(); renderTable(); resultDiv.style.display='none';
+  });
+
+  // init
+  renderHand();
+  renderTable();
+
+})();
+</script>
+</body>
+</html>
